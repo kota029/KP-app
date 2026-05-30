@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-import { GOOGLE_CLIENT_ID, hasGoogleOAuth } from './config/env'
+import { GOOGLE_CLIENT_ID, hasGoogleOAuth, isGasEnabled } from './config/env'
 import type { TabId, Member } from './types'
 import { AuthProvider } from './contexts/AuthContext'
 import { CompositionProvider, useComposition } from './contexts/CompositionContext'
@@ -53,18 +53,37 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabId>('catalog')
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchMembers().then((data) => {
-      setMembers(data)
-      setLoading(false)
-    })
+    fetchMembers()
+      .then((data) => {
+        setMembers(data)
+        setLoadError(null)
+      })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'データの取得に失敗しました')
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Header onSignInClick={() => setActiveTab('mypage')} />
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {!isGasEnabled && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+          デモモード（10名）: Vercel の環境変数 <code className="rounded bg-amber-100 px-1">VITE_GAS_API_URL</code>{' '}
+          が未設定です。設定後に再デプロイしてください。
+        </div>
+      )}
+
+      {loadError && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-center text-sm text-red-800">
+          {loadError}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-32">

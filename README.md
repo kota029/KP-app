@@ -25,8 +25,11 @@ npm run dev
 1. GitHub リポジトリ `kota029/kp-app` に push
 2. [Vercel](https://vercel.com) でリポジトリを Import
 3. Framework: **Vite**、Build: `npm run build`、Output: `dist`
-4. 環境変数に `VITE_GAS_API_URL` と `VITE_GOOGLE_CLIENT_ID` を設定
-5. Google Cloud Console の「承認済み JavaScript 生成元」に本番 URL（例: `https://kp-app.vercel.app`）を追加
+4. 環境変数に `VITE_GAS_API_URL` と `VITE_GOOGLE_CLIENT_ID` を設定（下記の値）
+5. **Deploy のあと、環境変数を変えたら必ず Redeploy**（Vite はビルド時に環境変数を埋め込む）
+6. Google Cloud Console の「承認済み JavaScript 生成元」に本番 URL（例: `https://kp-app-nu.vercel.app`）を追加
+
+本番の GAS 通信は `/gas-api` プロキシ（`vercel.json`）経由です。`VITE_GAS_API_URL` が無いと画面上部に「デモモード（10名）」と表示されます。
 
 ## GAS
 

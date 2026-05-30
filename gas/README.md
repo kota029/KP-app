@@ -12,11 +12,16 @@
 
 ## CORS について
 
-- **開発時**: Vite が `/gas-api` を `script.google.com` にプロキシ（同一オリジン化）
-- **初回紐づけ `linkAccount`**: **GET** で実行（POST の CORS を回避）
-- **その他 POST**: `Content-Type: text/plain` で JSON 送信（`src/api/gasFetch.ts`）
+- **開発時**: Vite が `/gas-api` を `script.google.com` にプロキシ
+- **本番（Vercel）**: `vercel.json` が `/gas-api` を GAS の `/exec` に rewrite
+- **初回紐づけ `linkAccount`**: **GET** で実行
+- **その他 POST**: `Content-Type: text/plain` で JSON 送信
 
-`Code.gs` を更新したら **必ずウェブアプリを再デプロイ**してください（`linkAccount` の GET 対応が必要です）。
+`Code.gs` を更新したら **必ずウェブアプリを再デプロイ**してください。
+
+## Vercel 本番
+
+環境変数 `VITE_GAS_API_URL` を設定してから **Redeploy** しないとモック10名のままになります。
 
 ## Settings シート（1行目ヘッダー）
 
