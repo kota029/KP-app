@@ -1,7 +1,7 @@
 export type Instrument =
   | 'ボーカル'
   | 'アコースティックギター'
-  | 'エレキギター'
+  | 'リード'
   | 'ベース'
   | 'ピアノ/キーボード'
   | 'ドラム/カホン'
@@ -9,7 +9,14 @@ export type Instrument =
 
 export type Campus = '相模原' | '青山'
 
-export type Weekday = '木' | '金'
+export type Weekday = '火' | '木' | '金'
+
+export type EventName =
+  | 'じょいふる'
+  | 'めぐみたいむ'
+  | '夕礼拝'
+  | 'ACF礼拝'
+  | 'コンテンポラリー礼拝'
 
 export interface ServiceRecord {
   id: string
@@ -43,6 +50,7 @@ export interface ServiceRegistration {
   memberId: string
   memberName: string
   instrument: Instrument
+  eventName: EventName
 }
 
 export interface CompositionSlot {
@@ -78,7 +86,7 @@ export interface ProfileUpdatePayload {
 
 export type TabId = 'catalog' | 'composition' | 'admin' | 'mypage'
 
-export type AddMemberResult = 'success' | 'already_assigned' | 'no_slot' | 'invalid_instrument'
+export type AddMemberResult = 'success' | 'already_assigned' | 'no_slot'
 
 export interface RegistrationRow {
   id: string

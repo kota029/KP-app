@@ -11,9 +11,10 @@ import {
   AlertCircle,
   Users,
 } from 'lucide-react'
-import type { Campus, Instrument, Member, RegistrationRow, ServiceRegistration } from '../../types'
+import type { Campus, EventName, Instrument, Member, RegistrationRow, ServiceRegistration } from '../../types'
 import {
   CAMPUSES,
+  EVENT_NAMES,
   INSTRUMENTS,
   getTodayString,
   getNextThursday,
@@ -50,6 +51,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
+  const [eventName, setEventName] = useState<EventName>('ACF礼拝')
 
   const compositionRows = useMemo(() => slotsToRows(slots), [slots])
 
@@ -109,6 +111,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
         memberId: row.memberId,
         memberName: member.name,
         instrument: row.instrument,
+        eventName,
       }
     })
 
@@ -135,9 +138,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
     }
   }
 
-  const getMemberInstruments = (memberId: string): Instrument[] => {
-    return members.find((m) => m.id === memberId)?.instruments ?? INSTRUMENTS
-  }
+  const getRowInstruments = (_row: RegistrationRow): Instrument[] => INSTRUMENTS
 
   const assignedCount = compositionRows.length
 
@@ -173,7 +174,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
           ))}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className="block">
             <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600">
               <Calendar className="h-3.5 w-3.5" />
@@ -202,6 +203,18 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
               ))}
             </select>
           </label>
+          <label className="block sm:col-span-2 lg:col-span-1">
+            <span className="mb-1.5 block text-xs font-medium text-slate-600">イベント名</span>
+            <select
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value as EventName)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            >
+              {EVENT_NAMES.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div>
@@ -227,9 +240,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
             <div className="space-y-2">
               {rows.map((row) => {
                 const isFromComposition = row.id.startsWith('comp-')
-                const instruments = row.memberId
-                  ? getMemberInstruments(row.memberId)
-                  : INSTRUMENTS
+                const instruments = getRowInstruments(row)
 
                 return (
                   <div

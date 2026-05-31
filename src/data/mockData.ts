@@ -21,7 +21,7 @@ function history(
 export const INSTRUMENTS: Instrument[] = [
   'ボーカル',
   'アコースティックギター',
-  'エレキギター',
+  'リード',
   'ベース',
   'ピアノ/キーボード',
   'ドラム/カホン',
@@ -30,12 +30,26 @@ export const INSTRUMENTS: Instrument[] = [
 
 export const CAMPUSES: Campus[] = ['相模原', '青山']
 
-export const WEEKDAYS: Weekday[] = ['木', '金']
+export const WEEKDAYS: Weekday[] = ['火', '木', '金']
+
+export const WEEKDAY_LABELS: Record<Weekday, string> = {
+  火: '火曜日',
+  木: '木曜日',
+  金: '金曜日',
+}
+
+export const EVENT_NAMES = [
+  'じょいふる',
+  'めぐみたいむ',
+  '夕礼拝',
+  'ACF礼拝',
+  'コンテンポラリー礼拝',
+] as const
 
 export const COMPOSITION_SLOTS: Instrument[] = [
   'ボーカル',
   'アコースティックギター',
-  'エレキギター',
+  'リード',
   'ベース',
   'ピアノ/キーボード',
   'ドラム/カホン',
@@ -89,8 +103,8 @@ export const mockMembers: Member[] = [
     name: '鈴木 大輔',
     email: 'daisuke.suzuki@example.com',
     campus: '青山',
-    instruments: ['エレキギター', 'ベース'],
-    preferredRole1: 'エレキギター',
+    instruments: ['リード', 'ベース'],
+    preferredRole1: 'リード',
     preferredRole2: 'ベース',
     monthlyServiceCount: 4,
     totalServiceCount: 55,
@@ -99,10 +113,10 @@ export const mockMembers: Member[] = [
     joinedYear: 2021,
     bio: 'エレキとベース両方できます。',
     serviceHistory: history('m3', [
-      { date: '2026-05-23', campus: '青山', role: 'エレキギター', eventName: '主日礼拝' },
-      { date: '2026-05-16', campus: '青山', role: 'エレキギター', eventName: '主日礼拝' },
+      { date: '2026-05-23', campus: '青山', role: 'リード', eventName: '主日礼拝' },
+      { date: '2026-05-16', campus: '青山', role: 'リード', eventName: '主日礼拝' },
       { date: '2026-05-09', campus: '相模原', role: 'ベース', eventName: '合同礼拝' },
-      { date: '2026-05-02', campus: '青山', role: 'エレキギター', eventName: '主日礼拝' },
+      { date: '2026-05-02', campus: '青山', role: 'リード', eventName: '主日礼拝' },
     ]),
   },
   {
@@ -165,9 +179,9 @@ export const mockMembers: Member[] = [
     name: '中村 亮',
     email: 'ryo.nakamura@example.com',
     campus: '相模原',
-    instruments: ['ベース', 'エレキギター'],
+    instruments: ['ベース', 'リード'],
     preferredRole1: 'ベース',
-    preferredRole2: 'エレキギター',
+    preferredRole2: 'リード',
     monthlyServiceCount: 2,
     totalServiceCount: 47,
     availableWeekdays: ['金'],
@@ -218,9 +232,9 @@ export const mockMembers: Member[] = [
     name: '山本 直樹',
     email: 'naoki.yamamoto@example.com',
     campus: '相模原',
-    instruments: ['PA', 'エレキギター'],
+    instruments: ['PA', 'リード'],
     preferredRole1: 'PA',
-    preferredRole2: 'エレキギター',
+    preferredRole2: 'リード',
     monthlyServiceCount: 3,
     totalServiceCount: 61,
     availableWeekdays: ['木', '金'],
@@ -228,7 +242,7 @@ export const mockMembers: Member[] = [
     joinedYear: 2019,
     serviceHistory: history('m10', [
       { date: '2026-05-22', campus: '相模原', role: 'PA', eventName: '主日礼拝' },
-      { date: '2026-05-15', campus: '相模原', role: 'エレキギター', eventName: '主日礼拝' },
+      { date: '2026-05-15', campus: '相模原', role: 'リード', eventName: '主日礼拝' },
       { date: '2026-05-08', campus: '相模原', role: 'PA', eventName: '主日礼拝' },
     ]),
   },
@@ -270,7 +284,7 @@ export function generateMockChatResponse(query: string, members: Member[]): stri
   const lower = query.toLowerCase()
 
   if (lower.includes('青山') && (lower.includes('アコ') || lower.includes('アコースティック'))) {
-    const targetDay: Weekday = lower.includes('木') ? '木' : '金'
+    const targetDay: Weekday = lower.includes('火') ? '火' : lower.includes('木') ? '木' : '金'
     const candidates = members.filter(
       (m) =>
         m.campus === '青山' &&
@@ -279,7 +293,7 @@ export function generateMockChatResponse(query: string, members: Member[]): stri
     )
     if (candidates.length === 0) return '条件に合うメンバーが見つかりませんでした。'
     const top3 = candidates.slice(0, 3)
-    const dayLabel = targetDay === '木' ? '木曜日' : '金曜日'
+    const dayLabel = WEEKDAY_LABELS[targetDay]
     return `来週${dayLabel}・青山でアコースティックギターが可能なメンバー：\n\n${top3
       .map(
         (m, i) =>

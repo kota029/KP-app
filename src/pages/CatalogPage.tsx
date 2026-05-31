@@ -66,7 +66,7 @@ export function CatalogPage({ members, onTabChange }: CatalogPageProps) {
     instrument: Instrument,
     navigate = false,
   ) => {
-    const result = addMemberToComposition(member.id, instrument, members)
+    const result = addMemberToComposition(member.id, instrument)
 
     if (result === 'success') {
       showNotification(`${member.name} を ${instrument} で編成に追加しました`, 'success')
@@ -76,10 +76,11 @@ export function CatalogPage({ members, onTabChange }: CatalogPageProps) {
       }
     } else if (result === 'already_assigned') {
       showNotification(`${member.name} はすでに編成に配置されています`, 'info')
-    } else if (result === 'invalid_instrument') {
-      showNotification('選択した楽器は担当できません', 'error')
     } else {
-      showNotification(`${instrument} の空き枠がありません`, 'error')
+      showNotification(
+        `${instrument} の空き枠がありません。構成タブで「枠を追加」してください`,
+        'error',
+      )
     }
   }
 

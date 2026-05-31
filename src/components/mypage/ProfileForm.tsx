@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
 import type { Campus, Instrument, Member, Weekday } from '../../types'
-import { CAMPUSES, INSTRUMENTS, WEEKDAYS } from '../../data/mockData'
+import { CAMPUSES, INSTRUMENTS, WEEKDAYS, WEEKDAY_LABELS } from '../../data/mockData'
 import { updateProfile } from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -121,7 +121,7 @@ export function ProfileForm({ member, onUpdated }: ProfileFormProps) {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {day}
+                {WEEKDAY_LABELS[day]}
               </button>
             ))}
           </div>

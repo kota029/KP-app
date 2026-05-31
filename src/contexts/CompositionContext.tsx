@@ -5,7 +5,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import type { AddMemberResult, Campus, CompositionSlot, Instrument, Member } from '../types'
+import type { AddMemberResult, Campus, CompositionSlot, Instrument } from '../types'
 import { COMPOSITION_SLOTS, getTodayString } from '../data/mockData'
 
 function createInitialSlots(): CompositionSlot[] {
@@ -29,12 +29,10 @@ interface CompositionContextValue {
   setDate: (date: string) => void
   setCampus: (campus: Campus) => void
   assignMember: (slotId: string, memberId: string | null) => void
-  addMemberToComposition: (
-    memberId: string,
-    instrument: Instrument,
-    members: Member[],
-  ) => AddMemberResult
-  moveMember: (fromSlotId: string, toSlotId: string, members: Member[]) => boolean
+  addMemberToComposition: (memberId: string, instrument: Instrument) => AddMemberResult
+  moveMember: (fromSlotId: string, toSlotId: string) => boolean
+  addSlot: (instrument: Instrument) => void
+  removeSlot: (slotId: string) => void
   resetSlots: () => void
   clearNotification: () => void
   showNotification: (message: string, type: Notification['type']) => void
@@ -67,13 +65,22 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
 
   const resetSlots = useCallback(() => setSlots(createInitialSlots()), [])
 
+  const addSlot = useCallback((instrument: Instrument) => {
+    setSlots((prev) => [
+      ...prev,
+      { id: `slot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, instrument, memberId: null },
+    ])
+  }, [])
+
+  const removeSlot = useCallback((slotId: string) => {
+    setSlots((prev) => {
+      if (prev.length <= 1) return prev
+      return prev.filter((s) => s.id !== slotId)
+    })
+  }, [])
+
   const addMemberToComposition = useCallback(
-    (memberId: string, instrument: Instrument, members: Member[]): AddMemberResult => {
-      const member = members.find((m) => m.id === memberId)
-      if (!member) return 'no_slot'
-
-      if (!member.instruments.includes(instrument)) return 'invalid_instrument'
-
+    (memberId: string, instrument: Instrument): AddMemberResult => {
       if (slots.some((s) => s.memberId === memberId)) return 'already_assigned'
 
       const slot = slots.find((s) => !s.memberId && s.instrument === instrument)
@@ -85,30 +92,24 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
     [slots, assignMember],
   )
 
-  const moveMember = useCallback(
-    (fromSlotId: string, toSlotId: string, members: Member[]): boolean => {
-      if (fromSlotId === toSlotId) return false
+  const moveMember = useCallback((fromSlotId: string, toSlotId: string): boolean => {
+    if (fromSlotId === toSlotId) return false
 
-      let success = false
-      setSlots((prev) => {
-        const from = prev.find((s) => s.id === fromSlotId)
-        const to = prev.find((s) => s.id === toSlotId)
-        if (!from?.memberId || to?.memberId) return prev
+    let success = false
+    setSlots((prev) => {
+      const from = prev.find((s) => s.id === fromSlotId)
+      const to = prev.find((s) => s.id === toSlotId)
+      if (!from?.memberId || to?.memberId) return prev
 
-        const member = members.find((m) => m.id === from.memberId)
-        if (!member || !to || !member.instruments.includes(to.instrument)) return prev
-
-        success = true
-        return prev.map((s) => {
-          if (s.id === fromSlotId) return { ...s, memberId: null }
-          if (s.id === toSlotId) return { ...s, memberId: from.memberId }
-          return s
-        })
+      success = true
+      return prev.map((s) => {
+        if (s.id === fromSlotId) return { ...s, memberId: null }
+        if (s.id === toSlotId) return { ...s, memberId: from.memberId }
+        return s
       })
-      return success
-    },
-    [],
-  )
+    })
+    return success
+  }, [])
 
   return (
     <CompositionContext.Provider
@@ -122,6 +123,8 @@ export function CompositionProvider({ children }: { children: ReactNode }) {
         assignMember,
         addMemberToComposition,
         moveMember,
+        addSlot,
+        removeSlot,
         resetSlots,
         clearNotification,
         showNotification,

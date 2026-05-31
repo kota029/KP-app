@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { AlertTriangle, GripVertical, Plus, X } from 'lucide-react'
+import { AlertTriangle, GripVertical, Plus, Trash2, X } from 'lucide-react'
 import type { Instrument, Member } from '../../types'
-import { HIGH_SERVICE_THRESHOLD } from '../../data/mockData'
+import { HIGH_SERVICE_THRESHOLD, INSTRUMENTS } from '../../data/mockData'
 import { useComposition } from '../../contexts/CompositionContext'
 
 interface CompositionAssistProps {
@@ -14,22 +14,22 @@ interface DragState {
 }
 
 export function CompositionAssist({ members }: CompositionAssistProps) {
-  const { slots, assignMember, moveMember, resetSlots, showNotification } = useComposition()
+  const {
+    slots,
+    assignMember,
+    moveMember,
+    addSlot,
+    removeSlot,
+    resetSlots,
+    showNotification,
+  } = useComposition()
   const [dragState, setDragState] = useState<DragState | null>(null)
+  const [newSlotInstrument, setNewSlotInstrument] = useState<Instrument>('ボーカル')
 
   const assignedIds = new Set(slots.filter((s) => s.memberId).map((s) => s.memberId!))
   const availableMembers = members.filter((m) => !assignedIds.has(m.id))
 
   const getMember = (id: string) => members.find((m) => m.id === id)
-
-  const canDropOnSlot = (slotId: string, instrument: Instrument, memberId: string | null) => {
-    if (!dragState || !memberId) return false
-    const slot = slots.find((s) => s.id === slotId)
-    if (!slot || slot.memberId) return false
-    if (dragState.fromSlotId === slotId) return false
-    const member = getMember(memberId)
-    return member?.instruments.includes(instrument) ?? false
-  }
 
   const handleDrop = (slotId: string) => {
     if (!dragState) return
@@ -37,18 +37,9 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
     const slot = slots.find((s) => s.id === slotId)
     if (!slot || slot.memberId) return
 
-    const member = getMember(dragState.memberId)
-    if (!member?.instruments.includes(slot.instrument)) {
-      showNotification(`${member?.name ?? 'メンバー'} は ${slot.instrument} を担当できません`, 'error')
-      setDragState(null)
-      return
-    }
-
     if (dragState.fromSlotId) {
-      const moved = moveMember(dragState.fromSlotId, slotId, members)
-      if (!moved) {
-        showNotification('移動できませんでした', 'error')
-      }
+      const moved = moveMember(dragState.fromSlotId, slotId)
+      if (!moved) showNotification('移動できませんでした', 'error')
     } else {
       assignMember(slotId, dragState.memberId)
     }
@@ -69,7 +60,7 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
         <div>
           <h2 className="text-lg font-semibold text-slate-900">編成ボード</h2>
           <p className="mt-1 text-sm text-slate-500">
-            候補または配置済みメンバーをドラッグして、空き枠に配置・移動できます
+            候補をドラッグして空き枠に配置。希望楽器以外の枠にも配置できます
           </p>
         </div>
         <button
@@ -134,16 +125,35 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
         </div>
 
         <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            編成枠
-          </h3>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              編成枠（{slots.length}）
+            </h3>
+            <div className="flex items-center gap-2">
+              <select
+                value={newSlotInstrument}
+                onChange={(e) => setNewSlotInstrument(e.target.value as Instrument)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none"
+              >
+                {INSTRUMENTS.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => addSlot(newSlotInstrument)}
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                枠を追加
+              </button>
+            </div>
+          </div>
           <div className="space-y-2">
             {slots.map((slot) => {
               const member = slot.memberId ? getMember(slot.memberId) : null
               const isWarning = member && member.monthlyServiceCount >= HIGH_SERVICE_THRESHOLD
-              const isDropTarget =
-                dragState &&
-                canDropOnSlot(slot.id, slot.instrument, dragState.memberId)
+              const isDropTarget = dragState && !slot.memberId
 
               return (
                 <div
@@ -160,19 +170,32 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
                           : 'border-slate-200 bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-brand-600">
                       {slot.instrument}
                     </span>
-                    {member && (
-                      <button
-                        type="button"
-                        onClick={() => assignMember(slot.id, null)}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {slots.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeSlot(slot.id)}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                          title="枠を削除"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {member && (
+                        <button
+                          type="button"
+                          onClick={() => assignMember(slot.id, null)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                          title="メンバーを外す"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {member ? (
@@ -200,10 +223,8 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="text-xs text-slate-400">
-                        {isDropTarget ? 'ここにドロップ' : 'ここにドロップ'}
-                      </p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="text-xs text-slate-400">ここにドロップ</p>
                       {availableMembers.length > 0 && (
                         <select
                           className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs outline-none"
@@ -213,13 +234,11 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
                           }}
                         >
                           <option value="">追加...</option>
-                          {availableMembers
-                            .filter((m) => m.instruments.includes(slot.instrument as Instrument))
-                            .map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
+                          {availableMembers.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
                         </select>
                       )}
                     </div>
@@ -232,17 +251,12 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
                         value=""
                         onChange={(e) => {
                           const toSlotId = e.target.value
-                          if (toSlotId) moveMember(slot.id, toSlotId, members)
+                          if (toSlotId) moveMember(slot.id, toSlotId)
                         }}
                       >
                         <option value="">別の枠へ移動...</option>
                         {slots
-                          .filter(
-                            (s) =>
-                              !s.memberId &&
-                              s.id !== slot.id &&
-                              member.instruments.includes(s.instrument),
-                          )
+                          .filter((s) => !s.memberId && s.id !== slot.id)
                           .map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.instrument}
@@ -255,28 +269,6 @@ export function CompositionAssist({ members }: CompositionAssistProps) {
               )
             })}
           </div>
-        </div>
-      </div>
-
-      <div className="mt-4 lg:hidden">
-        <p className="mb-2 text-xs text-slate-500">タップで追加（モバイル向け）</p>
-        <div className="flex flex-wrap gap-2">
-          {availableMembers.slice(0, 4).map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => {
-                const emptySlot = slots.find(
-                  (s) => !s.memberId && m.instruments.includes(s.instrument as Instrument),
-                )
-                if (emptySlot) assignMember(emptySlot.id, m.id)
-              }}
-              className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700"
-            >
-              <Plus className="h-3 w-3" />
-              {m.name}
-            </button>
-          ))}
         </div>
       </div>
     </section>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { X, MapPin, Music, UserPlus } from 'lucide-react'
 import type { Instrument, Member } from '../../types'
-import { WEEKDAYS } from '../../data/mockData'
+import { INSTRUMENTS, WEEKDAYS } from '../../data/mockData'
 import { DonutChart, buildRoleChartData } from '../shared/DonutChart'
 import { MemberActivityHistory } from '../shared/MemberActivityHistory'
-import { getPreferredInstrumentOptions } from '../../utils/memberUtils'
 
 interface MemberModalProps {
   member: Member | null
@@ -32,7 +31,6 @@ export function MemberModal({ member, onClose, onAddToComposition }: MemberModal
 
   if (!member) return null
 
-  const preferredOptions = getPreferredInstrumentOptions(member)
   const chartData = buildRoleChartData(member.serviceHistory)
 
   return (
@@ -81,7 +79,7 @@ export function MemberModal({ member, onClose, onAddToComposition }: MemberModal
               構成に追加する楽器
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {preferredOptions.map(({ instrument, label }) => (
+              {INSTRUMENTS.map((instrument) => (
                 <button
                   key={instrument}
                   type="button"
@@ -92,7 +90,7 @@ export function MemberModal({ member, onClose, onAddToComposition }: MemberModal
                       : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-brand-300'
                   }`}
                 >
-                  {label}: {instrument}
+                  {instrument}
                 </button>
               ))}
             </div>

@@ -1,6 +1,6 @@
 import { X, RotateCcw } from 'lucide-react'
 import type { FilterState, Instrument, Campus, Weekday } from '../../types'
-import { INSTRUMENTS, CAMPUSES, WEEKDAYS } from '../../data/mockData'
+import { INSTRUMENTS, CAMPUSES, WEEKDAYS, WEEKDAY_LABELS } from '../../data/mockData'
 
 interface FilterSidebarProps {
   filters: FilterState
@@ -163,7 +163,7 @@ export function FilterSidebar({ filters, onChange, resultCount, isOpen, onClose 
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {day}
+                  {WEEKDAY_LABELS[day]}
                 </button>
               )
             })}

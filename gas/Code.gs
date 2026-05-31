@@ -18,6 +18,10 @@
 const SPREADSHEET_ID = '1J9syVvFHcV9SiRpgCU67TIPtZICCaDmadnmDWNpfnVg';
 const SHEET_SETTINGS = 'Settings';
 const SHEET_SERVICE_LOG = 'ServiceLog';
+/** Settings K列（1始まり11列目 = 0始まりインデックス10）参加可能曜日 */
+const SETTINGS_WEEKDAY_COL = 10;
+/** ServiceLog G列（1始まり7列目 = 0始まりインデックス6）イベント名 */
+const SERVICE_LOG_EVENT_COL = 6;
 
 // ---------------------------------------------------------------------------
 // HTTP エントリポイント
@@ -103,15 +107,24 @@ function doPost(e) {
 // ---------------------------------------------------------------------------
 
 function getMembers() {
-  const settingsRows = readSheetAsObjects(SHEET_SETTINGS);
-  const logRows = readSheetAsObjects(SHEET_SERVICE_LOG);
-  const logsByMember = groupServiceLogs(logRows);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_SETTINGS);
+  if (!sheet) return [];
 
-  return settingsRows
-    .filter(function (row) { return String(row.id || '').trim() !== ''; })
-    .map(function (row, index) {
-      return buildMemberObject(row, logsByMember[row.id] || [], index);
-    });
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+
+  var headers = data[0].map(normalizeHeader);
+  var logRows = readSheetAsObjects(SHEET_SERVICE_LOG);
+  var logsByMember = groupServiceLogs(logRows);
+  var members = [];
+
+  for (var r = 1; r < data.length; r++) {
+    var row = rowToObject(data[r], headers);
+    if (String(row.id || '').trim() === '') continue;
+    members.push(buildMemberObject(row, logsByMember[row.id] || [], r - 1, data[r]));
+  }
+  return members;
 }
 
 function getMemberByEmail(email) {
@@ -134,7 +147,7 @@ function getMemberByEmail(email) {
     var cellEmail = String(data[r][emailCol] || '').trim().toLowerCase();
     if (cellEmail === normalized) {
       var row = rowToObject(data[r], headers);
-      return buildMemberObject(row, logsByMember[row.id] || [], r - 1);
+      return buildMemberObject(row, logsByMember[row.id] || [], r - 1, data[r]);
     }
   }
   return null;
@@ -298,12 +311,17 @@ function updateProfile(email, payload) {
 
   if (targetRow < 0) throw new Error('Member not found: ' + email);
 
+  if (payload.availableWeekdays !== undefined) {
+    var weekdayCol = findColumnIndex(headers, getHeaderAliases('availableWeekdays'));
+    if (weekdayCol < 0) weekdayCol = SETTINGS_WEEKDAY_COL;
+    sheet.getRange(targetRow, weekdayCol + 1).setValue(formatWeekdaysForSheet(payload.availableWeekdays));
+  }
+
   var updates = {
     name: payload.name,
     campus: payload.campus !== undefined ? normalizeCampus(payload.campus) : undefined,
     preferredRole1: payload.preferredRole1,
     preferredRole2: payload.preferredRole2,
-    availableWeekdays: payload.availableWeekdays,
     bio: payload.bio,
     avatarUrl: payload.avatarBase64 || payload.avatarUrl,
   };
@@ -313,9 +331,6 @@ function updateProfile(email, payload) {
     var col = findColumnIndex(headers, getHeaderAliases(key));
     if (col < 0) return;
     var value = updates[key];
-    if (key === 'availableWeekdays' && Array.isArray(value)) {
-      value = value.join(',');
-    }
     if (key === 'instruments' && Array.isArray(value)) {
       value = value.join(',');
     }
@@ -348,7 +363,7 @@ function uploadAvatar(email, base64Image) {
 // Member オブジェクト組み立て
 // ---------------------------------------------------------------------------
 
-function buildMemberObject(row, serviceRecords, index) {
+function buildMemberObject(row, serviceRecords, index, rawRow) {
   var instruments = buildInstrumentsList(row);
   var history = serviceRecords.map(function (log) {
     return {
@@ -374,7 +389,7 @@ function buildMemberObject(row, serviceRecords, index) {
     return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
   }).length;
 
-  var weekdays = parseWeekdays(row.availableWeekdays || row.availableweekdays || row['参加可能曜日'] || '');
+  var weekdays = parseWeekdays(getWeekdayCellValue(row, rawRow));
 
   return {
     id: String(row.id || ''),
@@ -486,13 +501,16 @@ function serviceLogToRow(obj, headers) {
     eventname: ['eventName', 'eventname', '内容', '奉仕内容', 'イベント'],
   };
 
-  return headers.map(function (h) {
+  return headers.map(function (h, colIndex) {
     var key = normalizeHeader(h).toLowerCase();
     var aliases = fieldMap[key] || [h];
     for (var i = 0; i < aliases.length; i++) {
       if (obj[aliases[i]] !== undefined && obj[aliases[i]] !== null && obj[aliases[i]] !== '') {
         return obj[aliases[i]];
       }
+    }
+    if (colIndex === SERVICE_LOG_EVENT_COL && obj.eventName) {
+      return obj.eventName;
     }
     return '';
   });
@@ -547,20 +565,44 @@ function parseCommaList(value) {
 function parseWeekdays(value) {
   return parseCommaList(value)
     .map(function (d) {
+      if (d.indexOf('火') >= 0) return '火';
       if (d.indexOf('木') >= 0) return '木';
       if (d.indexOf('金') >= 0) return '金';
       return d;
     })
-    .filter(function (d) { return d === '木' || d === '金'; });
+    .filter(function (d) { return d === '火' || d === '木' || d === '金'; });
+}
+
+function getWeekdayCellValue(row, rawRow) {
+  var named = row.availableWeekdays || row.availableweekdays || row['参加可能曜日'] || row['曜日'] || '';
+  if (named) return named;
+  if (rawRow && rawRow.length > SETTINGS_WEEKDAY_COL) {
+    return rawRow[SETTINGS_WEEKDAY_COL];
+  }
+  return '';
+}
+
+var WEEKDAY_TO_SHEET = {
+  '火': '火曜日',
+  '木': '木曜日',
+  '金': '金曜日',
+};
+
+function formatWeekdaysForSheet(weekdays) {
+  if (!weekdays || !weekdays.length) return '';
+  return weekdays.map(function (d) {
+    return WEEKDAY_TO_SHEET[d] || d;
+  }).join(',');
 }
 
 var INSTRUMENT_ALIASES = {
   'アコギ': 'アコースティックギター',
   'acoustic': 'アコースティックギター',
   'acousticguitar': 'アコースティックギター',
-  'エレキ': 'エレキギター',
-  'electric': 'エレキギター',
-  'electricguitar': 'エレキギター',
+  'エレキ': 'リード',
+  'electric': 'リード',
+  'electricguitar': 'リード',
+  'エレキギター': 'リード',
   'キーボ': 'ピアノ/キーボード',
   'keyboard': 'ピアノ/キーボード',
   'piano': 'ピアノ/キーボード',
@@ -588,6 +630,7 @@ function normalizeCampus(value) {
 function normalizeInstrument(value) {
   var v = String(value || '').trim();
   if (!v) return '';
+  if (v === 'エレキギター') return 'リード';
   if (INSTRUMENT_ALIASES[v]) return INSTRUMENT_ALIASES[v];
   var lower = v.toLowerCase().replace(/\s+/g, '');
   if (INSTRUMENT_ALIASES[lower]) return INSTRUMENT_ALIASES[lower];
