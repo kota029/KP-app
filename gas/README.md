@@ -20,8 +20,9 @@
 | campus | 相模原 / 青山 | |
 | preferredRole1/2 | 希望楽器 | |
 | instruments | 担当楽器（カンマ区切り） | |
+| **J列** | **avatarUrl** | アップロード画像（Base64 data URL または URL）。空なら ui-avatars デフォルト |
 | **K列** | **参加可能曜日** | プルダウン複数選択: `火曜日,木曜日,金曜日` |
-| bio, joinedYear, avatarUrl | | |
+| bio, joinedYear | | |
 
 ## ServiceLog シート（1行目ヘッダー）
 
@@ -42,7 +43,8 @@
 | getMembers | GET | 全員 + 履歴 + 集計 |
 | getMemberByEmail | GET | email で1人 |
 | linkAccount | GET | 初回ログイン紐づけ |
-| updateProfile | POST | プロフィール更新（曜日は K列） |
+| updateProfile | POST | プロフィール更新（曜日は K列、アバターは J列） |
+| uploadAvatar | POST | アバター画像アップロード（J列に Base64 保存） |
 | registerServicesBulk | POST | 奉仕一括登録（eventName 含む） |
 
 ## CORS について

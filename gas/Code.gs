@@ -18,6 +18,8 @@
 const SPREADSHEET_ID = '1J9syVvFHcV9SiRpgCU67TIPtZICCaDmadnmDWNpfnVg';
 const SHEET_SETTINGS = 'Settings';
 const SHEET_SERVICE_LOG = 'ServiceLog';
+/** Settings J列（1始まり10列目 = 0始まりインデックス9）アバター */
+const SETTINGS_AVATAR_COL = 9;
 /** Settings K列（1始まり11列目 = 0始まりインデックス10）参加可能曜日 */
 const SETTINGS_WEEKDAY_COL = 10;
 /** ServiceLog G列（1始まり7列目 = 0始まりインデックス6）イベント名 */
@@ -317,13 +319,19 @@ function updateProfile(email, payload) {
     sheet.getRange(targetRow, weekdayCol + 1).setValue(formatWeekdaysForSheet(payload.availableWeekdays));
   }
 
+  var avatarValue = payload.avatarBase64 !== undefined ? payload.avatarBase64 : payload.avatarUrl;
+  if (avatarValue !== undefined) {
+    var avatarCol = findColumnIndex(headers, getHeaderAliases('avatarUrl'));
+    if (avatarCol < 0) avatarCol = SETTINGS_AVATAR_COL;
+    sheet.getRange(targetRow, avatarCol + 1).setValue(avatarValue);
+  }
+
   var updates = {
     name: payload.name,
     campus: payload.campus !== undefined ? normalizeCampus(payload.campus) : undefined,
     preferredRole1: payload.preferredRole1,
     preferredRole2: payload.preferredRole2,
     bio: payload.bio,
-    avatarUrl: payload.avatarBase64 || payload.avatarUrl,
   };
 
   Object.keys(updates).forEach(function (key) {
@@ -354,9 +362,10 @@ function updateProfile(email, payload) {
 }
 
 function uploadAvatar(email, base64Image) {
-  // Base64 data URL を Settings.avatarUrl に保存（小さい画像向け）
-  updateProfile(email, { avatarBase64: base64Image });
-  return base64Image;
+  if (!email || !String(email).trim()) throw new Error('email is required');
+  if (!base64Image) throw new Error('image is required');
+  var member = updateProfile(email, { avatarBase64: base64Image });
+  return member.avatarUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +411,7 @@ function buildMemberObject(row, serviceRecords, index, rawRow) {
     monthlyServiceCount: monthlyServiceCount,
     totalServiceCount: totalServiceCount,
     availableWeekdays: weekdays,
-    avatarUrl: String(row.avatarUrl || row['アバター'] || '') || buildDefaultAvatar(String(row.name || ''), index),
+    avatarUrl: resolveAvatarUrl(row, rawRow, index),
     serviceHistory: history,
     bio: String(row.bio || row['自己紹介'] || '') || undefined,
     joinedYear: row.joinedYear ? Number(row.joinedYear) : (row['入団年'] ? Number(row['入団年']) : undefined),
@@ -580,6 +589,22 @@ function getWeekdayCellValue(row, rawRow) {
     return rawRow[SETTINGS_WEEKDAY_COL];
   }
   return '';
+}
+
+function getAvatarCellValue(row, rawRow) {
+  var named = row.avatarUrl || row.avatarurl || row['アバター'] || row.avatar || '';
+  if (named) return String(named).trim();
+  if (rawRow && rawRow.length > SETTINGS_AVATAR_COL) {
+    var cell = rawRow[SETTINGS_AVATAR_COL];
+    if (cell) return String(cell).trim();
+  }
+  return '';
+}
+
+function resolveAvatarUrl(row, rawRow, index) {
+  var raw = getAvatarCellValue(row, rawRow);
+  if (raw) return raw;
+  return buildDefaultAvatar(String(row.name || ''), index);
 }
 
 var WEEKDAY_TO_SHEET = {

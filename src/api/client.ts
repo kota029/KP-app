@@ -178,6 +178,12 @@ export async function uploadAvatar(email: string, base64Image: string): Promise<
 
     await delay(800)
 
+    const member = mockMembers.find((m) => m.email === email)
+
+    if (!member) throw new Error('Member not found')
+
+    member.avatarUrl = base64Image
+
     return base64Image
 
   }

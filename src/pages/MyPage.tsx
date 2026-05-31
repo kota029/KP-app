@@ -4,7 +4,11 @@ import { AvatarUpload } from '../components/mypage/AvatarUpload'
 import { Dashboard } from '../components/mypage/Dashboard'
 import { ProfileForm } from '../components/mypage/ProfileForm'
 
-export function MyPage() {
+interface MyPageProps {
+  onMemberAvatarUpdated?: (memberId: string, avatarUrl: string) => void
+}
+
+export function MyPage({ onMemberAvatarUpdated }: MyPageProps) {
   const { isLoggedIn, member, updateMember } = useAuth()
 
   if (!isLoggedIn || !member) {
@@ -17,7 +21,10 @@ export function MyPage() {
         <AvatarUpload
           avatarUrl={member.avatarUrl}
           name={member.name}
-          onAvatarChange={(url) => updateMember({ ...member, avatarUrl: url })}
+          onAvatarChange={(url) => {
+            updateMember({ ...member, avatarUrl: url })
+            onMemberAvatarUpdated?.(member.id, url)
+          }}
         />
         <div className="text-center sm:text-left">
           <h2 className="text-2xl font-bold text-slate-900">{member.name}</h2>

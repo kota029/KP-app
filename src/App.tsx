@@ -96,7 +96,15 @@ function AppContent() {
           )}
           {activeTab === 'composition' && <CompositionPage members={members} />}
           {activeTab === 'admin' && <AdminPage members={members} />}
-          {activeTab === 'mypage' && <MyPage />}
+          {activeTab === 'mypage' && (
+            <MyPage
+              onMemberAvatarUpdated={(memberId, avatarUrl) =>
+                setMembers((prev) =>
+                  prev.map((m) => (m.id === memberId ? { ...m, avatarUrl } : m)),
+                )
+              }
+            />
+          )}
         </>
       )}
 
