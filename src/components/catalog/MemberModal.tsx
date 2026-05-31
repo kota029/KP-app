@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, MapPin, Music, UserPlus } from 'lucide-react'
 import type { Instrument, Member } from '../../types'
 import { INSTRUMENTS, WEEKDAYS } from '../../data/mockData'
+import { getDefaultInstrument } from '../../utils/memberUtils'
 import { DonutChart, buildRoleChartData } from '../shared/DonutChart'
 import { MemberActivityHistory } from '../shared/MemberActivityHistory'
 
@@ -16,7 +17,7 @@ export function MemberModal({ member, onClose, onAddToComposition }: MemberModal
 
   useEffect(() => {
     if (member) {
-      setSelectedInstrument(member.preferredRole1)
+      setSelectedInstrument(getDefaultInstrument(member))
     }
   }, [member])
 
@@ -146,15 +147,17 @@ export function MemberModal({ member, onClose, onAddToComposition }: MemberModal
           <div className="mt-6">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <Music className="h-4 w-4 text-brand-600" />
-              希望楽器 / 役割
+              やりたい楽器
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white">
-                第1: {member.preferredRole1}
-              </span>
-              <span className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700">
-                第2: {member.preferredRole2}
-              </span>
+              {member.instruments.map((inst) => (
+                <span
+                  key={inst}
+                  className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700"
+                >
+                  {inst}
+                </span>
+              ))}
             </div>
           </div>
 

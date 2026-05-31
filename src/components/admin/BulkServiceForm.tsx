@@ -23,6 +23,7 @@ import {
 import { registerServicesBulk } from '../../api/client'
 import { useComposition } from '../../contexts/CompositionContext'
 import { AdminPinModal } from './AdminPinModal'
+import { getDefaultInstrument } from '../../utils/memberUtils'
 
 interface BulkServiceFormProps {
   members: Member[]
@@ -258,7 +259,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
                           const member = members.find((m) => m.id === memberId)
                           updateRow(row.id, {
                             memberId,
-                            instrument: member?.preferredRole1 ?? row.instrument,
+                            instrument: member ? getDefaultInstrument(member) : row.instrument,
                           })
                         }}
                         className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-brand-400"

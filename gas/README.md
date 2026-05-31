@@ -19,8 +19,8 @@
 | name | 氏名 | |
 | email | メール | |
 | campus | 相模原 / 青山 | |
-| preferredRole1/2 | 希望楽器 | |
-| instruments | 担当楽器（カンマ区切り） | |
+| **instruments** | **やりたい楽器** | 複数可・カンマ区切り（例: `ボーカル,リード,ベース`） |
+| preferredRole1/2 | （非推奨） | 読取のみ。instruments 列が空の旧データを合成する際に使用 |
 | **J列** | **avatarUrl** | アップロード画像（Base64 data URL または URL）。空なら ui-avatars デフォルト |
 | **K列** | **参加可能曜日** | プルダウン複数選択: `火曜日,木曜日,金曜日` |
 | bio, joinedYear | | |

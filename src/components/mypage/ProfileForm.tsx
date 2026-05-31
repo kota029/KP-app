@@ -14,12 +14,19 @@ export function ProfileForm({ member, onUpdated }: ProfileFormProps) {
   const { email } = useAuth()
   const [name, setName] = useState(member.name)
   const [campus, setCampus] = useState(member.campus)
-  const [preferredRole1, setPreferredRole1] = useState(member.preferredRole1)
-  const [preferredRole2, setPreferredRole2] = useState(member.preferredRole2)
+  const [instruments, setInstruments] = useState<Instrument[]>(member.instruments)
   const [weekdays, setWeekdays] = useState<Weekday[]>(member.availableWeekdays)
   const [bio, setBio] = useState(member.bio ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [instrumentError, setInstrumentError] = useState<string | null>(null)
+
+  const toggleInstrument = (item: Instrument) => {
+    setInstrumentError(null)
+    setInstruments((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item],
+    )
+  }
 
   const toggleWeekday = (day: Weekday) => {
     setWeekdays((prev) =>
@@ -31,15 +38,20 @@ export function ProfileForm({ member, onUpdated }: ProfileFormProps) {
     e.preventDefault()
     if (!email) return
 
+    if (instruments.length === 0) {
+      setInstrumentError('やりたい楽器を1つ以上選択してください')
+      return
+    }
+
     setSaving(true)
     setSaved(false)
+    setInstrumentError(null)
 
     try {
       const updated = await updateProfile(email, {
         name,
         campus,
-        preferredRole1,
-        preferredRole2,
+        instruments,
         availableWeekdays: weekdays,
         bio,
       })
@@ -80,31 +92,30 @@ export function ProfileForm({ member, onUpdated }: ProfileFormProps) {
           </select>
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-600">希望楽器（第1）</span>
-            <select
-              value={preferredRole1}
-              onChange={(e) => setPreferredRole1(e.target.value as Instrument)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              {INSTRUMENTS.map((i) => (
-                <option key={i} value={i}>{i}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-slate-600">希望楽器（第2）</span>
-            <select
-              value={preferredRole2}
-              onChange={(e) => setPreferredRole2(e.target.value as Instrument)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-            >
-              {INSTRUMENTS.map((i) => (
-                <option key={i} value={i}>{i}</option>
-              ))}
-            </select>
-          </label>
+        <div>
+          <span className="mb-2 block text-xs font-medium text-slate-600">やりたい楽器</span>
+          <div className="flex flex-wrap gap-1.5">
+            {INSTRUMENTS.map((item) => {
+              const selected = instruments.includes(item)
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => toggleInstrument(item)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    selected
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {item}
+                </button>
+              )
+            })}
+          </div>
+          {instrumentError && (
+            <p className="mt-2 text-xs text-red-600">{instrumentError}</p>
+          )}
         </div>
 
         <div>

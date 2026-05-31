@@ -32,8 +32,6 @@ export interface Member {
   email: string
   campus: Campus
   instruments: Instrument[]
-  preferredRole1: Instrument
-  preferredRole2: Instrument
   monthlyServiceCount: number
   totalServiceCount: number
   availableWeekdays: Weekday[]
@@ -77,8 +75,7 @@ export interface ChatMessage {
 export interface ProfileUpdatePayload {
   name?: string
   campus?: Campus
-  preferredRole1?: Instrument
-  preferredRole2?: Instrument
+  instruments?: Instrument[]
   availableWeekdays?: Weekday[]
   bio?: string
   avatarBase64?: string

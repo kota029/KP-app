@@ -6,7 +6,7 @@
  * - ServiceLog … 奉仕履歴
  *
  * Settings 1行目ヘッダー（推奨）:
- *   id | name | email | campus | instruments | preferredRole1 | preferredRole2 |
+ *   id | name | email | campus | instruments | ...
  *   availableWeekdays | bio | joinedYear | avatarUrl
  *
  * ServiceLog 1行目ヘッダー（推奨）:
@@ -337,8 +337,6 @@ function updateProfile(email, payload) {
   var updates = {
     name: payload.name,
     campus: payload.campus !== undefined ? normalizeCampus(payload.campus) : undefined,
-    preferredRole1: payload.preferredRole1,
-    preferredRole2: payload.preferredRole2,
     bio: payload.bio,
   };
 
@@ -346,22 +344,21 @@ function updateProfile(email, payload) {
     if (updates[key] === undefined) return;
     var col = findColumnIndex(headers, getHeaderAliases(key));
     if (col < 0) return;
-    var value = updates[key];
-    if (key === 'instruments' && Array.isArray(value)) {
-      value = value.join(',');
-    }
-    sheet.getRange(targetRow, col + 1).setValue(value);
+    sheet.getRange(targetRow, col + 1).setValue(updates[key]);
   });
 
-  // instruments 列を preferredRole から再構築（更新された場合）
-  if (payload.preferredRole1 || payload.preferredRole2) {
-    var instCol = findColumnIndex(headers, ['instruments', '楽器', '担当楽器']);
-    if (instCol >= 0) {
-      var rowData = sheet.getRange(targetRow, 1, 1, headers.length).getValues()[0];
-      var obj = rowToObject(rowData, headers);
-      var instruments = buildInstrumentsList(obj);
-      sheet.getRange(targetRow, instCol + 1).setValue(instruments.join(','));
+  if (payload.instruments !== undefined) {
+    var instCol = findColumnIndex(headers, getHeaderAliases('instruments'));
+    if (instCol < 0) {
+      instCol = findColumnIndex(headers, ['instruments', '楽器', '担当楽器', 'やりたい楽器']);
     }
+    if (instCol < 0) throw new Error('instruments column not found in Settings');
+    var instValue = Array.isArray(payload.instruments)
+      ? payload.instruments.map(normalizeInstrument).filter(function (v, i, a) {
+          return v && a.indexOf(v) === i;
+        }).join(',')
+      : String(payload.instruments || '');
+    sheet.getRange(targetRow, instCol + 1).setValue(instValue);
   }
 
   var member = getMemberByEmail(email);
@@ -414,8 +411,6 @@ function buildMemberObject(row, serviceRecords, index, rawRow) {
     email: String(row.email || row['メール'] || row['メールアドレス'] || ''),
     campus: normalizeCampus(row.campus || row['キャンパス'] || row['所属'] || row['所属キャンパス'] || ''),
     instruments: instruments,
-    preferredRole1: normalizeInstrument(row.preferredRole1 || row['得意楽器1'] || row['希望楽器1'] || instruments[0] || ''),
-    preferredRole2: normalizeInstrument(row.preferredRole2 || row['得意楽器2'] || row['希望楽器2'] || instruments[1] || instruments[0] || ''),
     monthlyServiceCount: monthlyServiceCount,
     totalServiceCount: totalServiceCount,
     availableWeekdays: weekdays,
@@ -552,7 +547,7 @@ function getHeaderAliases(field) {
     bio: ['bio', '自己紹介'],
     joinedYear: ['joinedYear', 'joinedyear', '入団年'],
     avatarUrl: ['avatarUrl', 'avatarurl', 'アバター', 'avatar'],
-    instruments: ['instruments', '楽器', '担当楽器'],
+    instruments: ['instruments', 'instrument', '楽器', '担当楽器', 'やりたい楽器'],
   };
   return map[field] || [field];
 }
@@ -769,8 +764,6 @@ function slimMemberForRag(member) {
     name: member.name,
     campus: member.campus,
     instruments: member.instruments || [],
-    preferredRole1: member.preferredRole1 || '',
-    preferredRole2: member.preferredRole2 || '',
     availableWeekdays: member.availableWeekdays || [],
     monthlyServiceCount: member.monthlyServiceCount || 0,
     totalServiceCount: member.totalServiceCount || 0,
@@ -786,8 +779,6 @@ function scoreMemberForQuery(member, query) {
     member.name,
     member.campus,
     (member.instruments || []).join(' '),
-    member.preferredRole1,
-    member.preferredRole2,
     (member.availableWeekdays || []).join(' '),
     member.bio,
   ].join(' ');
@@ -855,9 +846,7 @@ function formatMemberForRag(member) {
     '名前:' + member.name,
     'ID:' + member.id,
     'キャンパス:' + member.campus,
-    '楽器:' + (member.instruments || []).join(','),
-    '希望1:' + (member.preferredRole1 || '-'),
-    '希望2:' + (member.preferredRole2 || '-'),
+    'やりたい楽器:' + (member.instruments || []).join(','),
     '参加可能曜日:' + (member.availableWeekdays || []).join(','),
     '今月奉仕:' + (member.monthlyServiceCount || 0) + '回',
     '通算奉仕:' + (member.totalServiceCount || 0) + '回',

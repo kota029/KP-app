@@ -5,6 +5,7 @@ import { FilterSidebar } from '../components/catalog/FilterSidebar'
 import { MemberCard } from '../components/catalog/MemberCard'
 import { MemberModal } from '../components/catalog/MemberModal'
 import { useComposition } from '../contexts/CompositionContext'
+import { getDefaultInstrument } from '../utils/memberUtils'
 
 interface CatalogPageProps {
   members: Member[]
@@ -140,7 +141,7 @@ export function CatalogPage({ members, onTabChange }: CatalogPageProps) {
                 index={i}
                 onClick={() => setSelectedMember(member)}
                 onAddToComposition={() =>
-                  handleAddToComposition(member, member.preferredRole1, false)
+                  handleAddToComposition(member, getDefaultInstrument(member), false)
                 }
               />
             ))}
