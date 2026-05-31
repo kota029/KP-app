@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MessageCircle, X, Send, Sparkles } from 'lucide-react'
 import type { ChatMessage } from '../../types'
 import { sendChatQuery } from '../../api/client'
+import { useComposition } from '../../contexts/CompositionContext'
 
 const SUGGESTIONS = [
   '来週金曜日の青山でアコギができる人を3人挙げて',
@@ -41,6 +42,7 @@ function formatContent(text: string) {
 }
 
 export function ChatWidget() {
+  const { showNotification } = useComposition()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -81,6 +83,18 @@ export function ChatWidget() {
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, assistantMsg])
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '回答の取得に失敗しました'
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `e-${Date.now()}`,
+          role: 'assistant',
+          content: message,
+          timestamp: new Date(),
+        },
+      ])
+      showNotification(message, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -109,7 +123,7 @@ export function ChatWidget() {
               <Sparkles className="h-5 w-5" />
               <div>
                 <p className="text-sm font-semibold">AI 奉仕者検索</p>
-                <p className="text-[10px] text-brand-100">RAG モック（GAS連携想定）</p>
+                <p className="text-[10px] text-brand-100">名簿データ連携（Gemini）</p>
               </div>
             </div>
             <button

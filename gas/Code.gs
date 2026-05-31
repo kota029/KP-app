@@ -24,6 +24,12 @@ const SETTINGS_AVATAR_COL = 9;
 const SETTINGS_WEEKDAY_COL = 10;
 /** ServiceLog G列（1始まり7列目 = 0始まりインデックス6）イベント名 */
 const SERVICE_LOG_EVENT_COL = 6;
+/** RAG コンテキスト最大文字数 */
+const RAG_CONTEXT_CHAR_LIMIT = 80000;
+/** Gemini（Script Properties: GEMINI_API_KEY） */
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
 
 // ---------------------------------------------------------------------------
 // HTTP エントリポイント
@@ -95,7 +101,9 @@ function doPost(e) {
     }
 
     if (action === 'chat') {
-      return jsonResponse({ response: 'AIチャットは未実装です。' });
+      const query = (body.query || '').trim();
+      if (!query) return errorResponse('query is required');
+      return jsonResponse({ response: chat(query) });
     }
 
     return errorResponse('Unknown action: ' + action);
@@ -687,6 +695,252 @@ function buildDefaultAvatar(name, index) {
   var color = colors[index % colors.length];
   return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initial) +
     '&background=' + color + '&color=fff&size=128&bold=true';
+}
+
+// ---------------------------------------------------------------------------
+// AI チャット（RAG + Gemini）
+// ---------------------------------------------------------------------------
+
+function chat(query) {
+  var members = getCachedMembersForRag();
+  var selected = selectRelevantMembers(members, query, 20);
+  var context = buildRagContext(selected);
+
+  if (context.length > RAG_CONTEXT_CHAR_LIMIT) {
+    selected = selectRelevantMembers(members, query, 10);
+    context = buildRagContext(selected);
+  }
+
+  var systemPrompt =
+    'あなたは ACF 奉仕者管理アプリの AI アシスタントです。\n' +
+    '提供された名簿データ（スプレッドシート由来）のみに基づいて日本語で回答してください。\n' +
+    'ルール:\n' +
+    '- 名簿に存在しない人物や架空の情報を作らない\n' +
+    '- 該当者がいない場合は「条件に合うメンバーが見つかりませんでした」と明記する\n' +
+    '- 人名は Markdown の **名前** 形式で強調する\n' +
+    '- メールアドレスなど個人情報は回答に含めない\n' +
+    '- 奉仕回数・キャンパス・楽器・参加可能曜日を考慮して推薦してよい\n' +
+    '- 簡潔で読みやすい箇条書きを活用する';
+
+  var userPrompt =
+    '【名簿データ（' + selected.length + '名）】\n' +
+    context +
+    '\n\n【ユーザーの質問】\n' +
+    query;
+
+  return callGemini(systemPrompt, userPrompt);
+}
+
+function getCachedMembersForRag() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('members_rag_v1');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      // fall through
+    }
+  }
+
+  var members = getMembers();
+  var slim = members.map(slimMemberForRag);
+
+  try {
+    cache.put('members_rag_v1', JSON.stringify(slim), 300);
+  } catch (e) {
+    // キャッシュが大きすぎる場合はスキップ
+  }
+
+  return slim;
+}
+
+function slimMemberForRag(member) {
+  var history = (member.serviceHistory || []).slice(0, 3).map(function (h) {
+    return {
+      date: h.date,
+      campus: h.campus,
+      role: h.role,
+      eventName: h.eventName,
+    };
+  });
+
+  return {
+    id: member.id,
+    name: member.name,
+    campus: member.campus,
+    instruments: member.instruments || [],
+    preferredRole1: member.preferredRole1 || '',
+    preferredRole2: member.preferredRole2 || '',
+    availableWeekdays: member.availableWeekdays || [],
+    monthlyServiceCount: member.monthlyServiceCount || 0,
+    totalServiceCount: member.totalServiceCount || 0,
+    bio: member.bio || '',
+    serviceHistory: history,
+  };
+}
+
+function scoreMemberForQuery(member, query) {
+  var q = String(query || '');
+  var score = 0;
+  var blob = [
+    member.name,
+    member.campus,
+    (member.instruments || []).join(' '),
+    member.preferredRole1,
+    member.preferredRole2,
+    (member.availableWeekdays || []).join(' '),
+    member.bio,
+  ].join(' ');
+
+  if (q.indexOf('相模原') >= 0 && member.campus === '相模原') score += 5;
+  if (q.indexOf('青山') >= 0 && member.campus === '青山') score += 5;
+
+  ['火', '木', '金', '火曜', '木曜', '金曜'].forEach(function (token) {
+    if (q.indexOf(token) >= 0) {
+      var day = token.charAt(0);
+      if ((member.availableWeekdays || []).indexOf(day) >= 0) score += 3;
+    }
+  });
+
+  var keywords = [
+    'ボーカル', 'アコギ', 'アコースティック', 'リード', 'エレキ', 'ベース',
+    'ドラム', 'カホン', 'ピアノ', 'キーボ', 'PA',
+  ];
+  keywords.forEach(function (kw) {
+    if (q.indexOf(kw) >= 0 && blob.indexOf(kw) >= 0) score += 4;
+  });
+
+  if (member.name && q.indexOf(member.name) >= 0) score += 10;
+
+  if (q.indexOf('多い') >= 0 || q.indexOf('TOP') >= 0 || q.indexOf('top') >= 0) {
+    score += member.monthlyServiceCount || 0;
+  }
+  if (q.indexOf('少ない') >= 0) {
+    score += Math.max(0, 20 - (member.monthlyServiceCount || 0));
+  }
+
+  return score;
+}
+
+function selectRelevantMembers(members, query, maxCount) {
+  maxCount = maxCount || 20;
+  if (!members || !members.length) return [];
+
+  var scored = members.map(function (m) {
+    return { member: m, score: scoreMemberForQuery(m, query) };
+  });
+  scored.sort(function (a, b) {
+    return b.score - a.score;
+  });
+
+  var matched = scored.filter(function (s) { return s.score > 0; });
+  if (matched.length >= 5) {
+    return matched.slice(0, maxCount).map(function (s) { return s.member; });
+  }
+
+  if (members.length <= maxCount) return members;
+  return scored.slice(0, maxCount).map(function (s) { return s.member; });
+}
+
+function buildRagContext(members) {
+  return members.map(formatMemberForRag).join('\n');
+}
+
+function formatMemberForRag(member) {
+  var recent = (member.serviceHistory || []).map(function (h) {
+    return h.date + ' ' + h.campus + ' ' + h.role + '(' + h.eventName + ')';
+  }).join('; ');
+
+  var parts = [
+    '名前:' + member.name,
+    'ID:' + member.id,
+    'キャンパス:' + member.campus,
+    '楽器:' + (member.instruments || []).join(','),
+    '希望1:' + (member.preferredRole1 || '-'),
+    '希望2:' + (member.preferredRole2 || '-'),
+    '参加可能曜日:' + (member.availableWeekdays || []).join(','),
+    '今月奉仕:' + (member.monthlyServiceCount || 0) + '回',
+    '通算奉仕:' + (member.totalServiceCount || 0) + '回',
+  ];
+
+  if (member.bio) parts.push('自己紹介:' + member.bio);
+  if (recent) parts.push('直近奉仕:' + recent);
+
+  return '- ' + parts.join(' | ');
+}
+
+function getGeminiApiKey() {
+  var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!key) {
+    throw new Error(
+      'GEMINI_API_KEY が未設定です。Apps Script → プロジェクトの設定 → スクリプト プロパティに設定してください。',
+    );
+  }
+  return key;
+}
+
+function callGemini(systemPrompt, userPrompt) {
+  var apiKey = getGeminiApiKey();
+  var url = GEMINI_API_URL + '?key=' + encodeURIComponent(apiKey);
+
+  var payload = {
+    systemInstruction: {
+      parts: [{ text: systemPrompt }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userPrompt }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 1024,
+    },
+  };
+
+  var response = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+
+  var status = response.getResponseCode();
+  var bodyText = response.getContentText();
+
+  if (status === 429) {
+    throw new Error('Gemini API の利用上限に達しました。しばらく待ってから再試行してください。');
+  }
+
+  var parsed;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch (e) {
+    throw new Error('Gemini API の応答を解析できません（HTTP ' + status + '）');
+  }
+
+  if (parsed.error && parsed.error.message) {
+    throw new Error('Gemini API エラー: ' + parsed.error.message);
+  }
+
+  if (status < 200 || status >= 300) {
+    throw new Error('Gemini API エラー（HTTP ' + status + '）');
+  }
+
+  var candidates = parsed.candidates || [];
+  if (!candidates.length) {
+    throw new Error('Gemini API から回答を取得できませんでした。');
+  }
+
+  var parts = (candidates[0].content && candidates[0].content.parts) || [];
+  var text = parts.map(function (p) { return p.text || ''; }).join('').trim();
+
+  if (!text) {
+    throw new Error('Gemini API から空の回答が返されました。');
+  }
+
+  return text;
 }
 
 // ---------------------------------------------------------------------------

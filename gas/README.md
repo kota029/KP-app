@@ -46,6 +46,20 @@
 | updateProfile | POST | プロフィール更新（曜日は K列、アバターは J列） |
 | uploadAvatar | POST | アバター画像アップロード（J列に Base64 保存） |
 | registerServicesBulk | POST | 奉仕一括登録（eventName 含む） |
+| chat | POST | RAG チャット（query → Gemini 回答） |
+
+## AI チャット（Gemini）
+
+1. [Google AI Studio](https://aistudio.google.com/apikey) で API キーを作成
+2. Apps Script → **プロジェクトの設定** → **スクリプト プロパティ**
+   - プロパティ: `GEMINI_API_KEY`
+   - 値: 発行した API キー
+3. **ウェブアプリを再デプロイ**
+
+- モデル: `gemini-2.0-flash`（無料枠向け）
+- 名簿は `getMembers()` から RAG コンテキストを生成（avatar Base64 は除外）
+- 無料枠にはレート制限・1日あたりの上限があります。429 エラー時は時間をおいて再試行してください
+- API キーは Script Properties のみに保存（リポジトリにコミットしない）
 
 ## CORS について
 
