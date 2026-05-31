@@ -22,6 +22,7 @@ import {
 } from '../../data/mockData'
 import { registerServicesBulk } from '../../api/client'
 import { useComposition } from '../../contexts/CompositionContext'
+import { AdminPinModal } from './AdminPinModal'
 
 interface BulkServiceFormProps {
   members: Member[]
@@ -45,13 +46,14 @@ function slotsToRows(
 }
 
 export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps) {
-  const { slots, date, campus, setDate, setCampus, resetSlots } = useComposition()
+  const { slots, date, campus, setDate, setCampus, resetSlots, showNotification } = useComposition()
   const [rows, setRows] = useState<RegistrationRow[]>([])
   const [manualRowIds, setManualRowIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
   const [eventName, setEventName] = useState<EventName>('ACF礼拝')
+  const [pinModalOpen, setPinModalOpen] = useState(false)
 
   const compositionRows = useMemo(() => slotsToRows(slots), [slots])
 
@@ -313,7 +315,7 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
 
         <button
           type="button"
-          onClick={handleBulkRegister}
+          onClick={() => setPinModalOpen(true)}
           disabled={loading || validRows.length === 0 || hasDuplicates || !date}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
@@ -332,6 +334,13 @@ export function BulkServiceForm({ members, onRegistered }: BulkServiceFormProps)
           )}
         </button>
       </div>
+
+      <AdminPinModal
+        open={pinModalOpen}
+        onClose={() => setPinModalOpen(false)}
+        onSuccess={handleBulkRegister}
+        onError={(message) => showNotification(message, 'error')}
+      />
     </section>
   )
 }
