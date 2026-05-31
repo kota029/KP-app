@@ -5,7 +5,8 @@
 1. [スプレッドシート](https://docs.google.com/spreadsheets/d/1J9syVvFHcV9SiRpgCU67TIPtZICCaDmadnmDWNpfnVg) を開く
 2. **拡張機能 → Apps Script**
 3. `Code.gs` の内容をこのフォルダの `Code.gs` で置き換え
-4. **デプロイ → 新しいデプロイ → ウェブアプリ**
+4. **（AIチャット利用時）** `appsscript.json` をマニフェストに反映（README「UrlFetchApp 権限エラー」参照）
+5. **デプロイ → 新しいデプロイ → ウェブアプリ**
    - 実行ユーザー: 自分
    - アクセス: 全員
 5. フロントの `.env` に `VITE_GAS_API_URL` を設定済み
@@ -55,6 +56,22 @@
    - プロパティ: `GEMINI_API_KEY`
    - 値: 発行した API キー
 3. **ウェブアプリを再デプロイ**
+
+### UrlFetchApp 権限エラーが出る場合
+
+チャット追加後、初めて Gemini API を呼ぶと次のエラーが出ることがあります:
+
+> UrlFetchApp.fetch を呼び出す権限がありません（script.external_request）
+
+**原因:** ウェブアプリのデプロイ時点では `UrlFetchApp`（外部 API 呼び出し）の権限がまだ付与されていない。
+
+**対処（デプロイ実行者＝あなたのアカウントで1回だけ）:**
+
+1. Apps Script エディタで `gas/appsscript.json` の内容を反映  
+   （**プロジェクトの設定 → 「appsscript.json マニフェスト ファイルをエディタで表示する」** を ON にし、`appsscript.json` を貼り付け）
+2. `Code.gs` を最新に更新
+3. 関数 **`authorizeGeminiChat`** を選んで **▶ 実行** → 「外部サービスへの接続」を **許可**
+4. **デプロイ → ウェブアプリを再デプロイ**（新バージョン）
 
 - モデル: `gemini-2.0-flash`（無料枠向け）
 - 名簿は `getMembers()` から RAG コンテキストを生成（avatar Base64 は除外）

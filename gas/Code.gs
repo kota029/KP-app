@@ -879,6 +879,37 @@ function getGeminiApiKey() {
   return key;
 }
 
+/**
+ * Apps Script エディタで1回実行し、UrlFetchApp（外部 API）権限を付与する。
+ * 実行 → 権限を許可 → ウェブアプリを再デプロイ。
+ */
+function authorizeGeminiChat() {
+  var key = getGeminiApiKey();
+  var url = GEMINI_API_URL + '?key=' + encodeURIComponent(key);
+  var response = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: 'こんにちは' }] }],
+      generationConfig: { maxOutputTokens: 32 },
+    }),
+    muteHttpExceptions: true,
+  });
+  Logger.log('HTTP ' + response.getResponseCode());
+  Logger.log(response.getContentText().slice(0, 300));
+  return 'Gemini 接続テスト完了。ウェブアプリを再デプロイしてください。';
+}
+
+function isExternalRequestAuthError(err) {
+  var msg = String((err && err.message) || err || '');
+  return (
+    msg.indexOf('external_request') >= 0 ||
+    msg.indexOf('UrlFetchApp') >= 0 ||
+    msg.indexOf('権限') >= 0 ||
+    msg.indexOf('authorization') >= 0
+  );
+}
+
 function callGemini(systemPrompt, userPrompt) {
   var apiKey = getGeminiApiKey();
   var url = GEMINI_API_URL + '?key=' + encodeURIComponent(apiKey);
@@ -899,12 +930,23 @@ function callGemini(systemPrompt, userPrompt) {
     },
   };
 
-  var response = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true,
-  });
+  var response;
+  try {
+    response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    if (isExternalRequestAuthError(err)) {
+      throw new Error(
+        'Gemini API 呼び出しの権限が未承認です。Apps Script エディタで authorizeGeminiChat を1回実行し、' +
+          '「外部サービスへの接続」を許可してから、ウェブアプリを再デプロイしてください。',
+      );
+    }
+    throw err;
+  }
 
   var status = response.getResponseCode();
   var bodyText = response.getContentText();
