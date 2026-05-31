@@ -16,6 +16,8 @@ const initialFilters: FilterState = {
   instruments: [],
   campuses: [],
   maxMonthlyCount: null,
+  minTotalServiceCount: 0,
+  maxTotalServiceCount: null,
   availableWeekdays: [],
 }
 
@@ -40,6 +42,14 @@ function filterMembers(members: Member[], filters: FilterState, searchQuery: str
 
     if (filters.maxMonthlyCount !== null) {
       if (m.monthlyServiceCount > filters.maxMonthlyCount) return false
+    }
+
+    if (m.totalServiceCount < filters.minTotalServiceCount) return false
+    if (
+      filters.maxTotalServiceCount !== null &&
+      m.totalServiceCount > filters.maxTotalServiceCount
+    ) {
+      return false
     }
 
     if (filters.availableWeekdays.length > 0) {
@@ -90,6 +100,7 @@ export function CatalogPage({ members, onTabChange }: CatalogPageProps) {
       <FilterSidebar
         filters={filters}
         onChange={setFilters}
+        members={members}
         resultCount={filtered.length}
         isOpen={filterOpen}
         onClose={() => setFilterOpen(false)}

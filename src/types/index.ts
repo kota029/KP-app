@@ -61,6 +61,8 @@ export interface FilterState {
   instruments: Instrument[]
   campuses: Campus[]
   maxMonthlyCount: number | null
+  minTotalServiceCount: number
+  maxTotalServiceCount: number | null
   availableWeekdays: Weekday[]
 }
 

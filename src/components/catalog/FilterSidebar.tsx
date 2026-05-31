@@ -1,10 +1,12 @@
 import { X, RotateCcw } from 'lucide-react'
-import type { FilterState, Instrument, Campus, Weekday } from '../../types'
+import type { FilterState, Instrument, Campus, Weekday, Member } from '../../types'
 import { INSTRUMENTS, CAMPUSES, WEEKDAYS, WEEKDAY_LABELS } from '../../data/mockData'
+import { TotalServiceCountFilter } from './TotalServiceCountFilter'
 
 interface FilterSidebarProps {
   filters: FilterState
   onChange: (filters: FilterState) => void
+  members: Member[]
   resultCount: number
   isOpen: boolean
   onClose: () => void
@@ -14,6 +16,8 @@ const defaultFilters: FilterState = {
   instruments: [],
   campuses: [],
   maxMonthlyCount: null,
+  minTotalServiceCount: 0,
+  maxTotalServiceCount: null,
   availableWeekdays: [],
 }
 
@@ -56,7 +60,7 @@ function CheckboxGroup<T extends string>({
   )
 }
 
-export function FilterSidebar({ filters, onChange, resultCount, isOpen, onClose }: FilterSidebarProps) {
+export function FilterSidebar({ filters, onChange, members, resultCount, isOpen, onClose }: FilterSidebarProps) {
   const toggleInstrument = (item: Instrument) => {
     const next = filters.instruments.includes(item)
       ? filters.instruments.filter((i) => i !== item)
@@ -144,6 +148,15 @@ export function FilterSidebar({ filters, onChange, resultCount, isOpen, onClose 
             ))}
           </div>
         </div>
+
+        <TotalServiceCountFilter
+          members={members}
+          min={filters.minTotalServiceCount}
+          max={filters.maxTotalServiceCount}
+          onChange={(minTotalServiceCount, maxTotalServiceCount) =>
+            onChange({ ...filters, minTotalServiceCount, maxTotalServiceCount })
+          }
+        />
 
         <div>
           <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
